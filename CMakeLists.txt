@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.6.3)
+cmake_minimum_required(VERSION 2.8)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake;${CMAKE_MODULE_PATH}")
 include(Utilities)
 include(CheckIncludeFiles)
@@ -20,14 +20,12 @@ option(ENABLE_DATA_CHANNEL "Enable support for data channel" ON)
 
 # Developer Flags
 option(BUILD_TEST "Build the testing tree." OFF)
-option(BUILD_BENCHMARK "Build the benchmark tree." OFF)
 option(CODE_COVERAGE "Enable coverage reporting" OFF)
 option(COMPILER_WARNINGS "Enable all compiler warnings." OFF)
 option(ADDRESS_SANITIZER "Build with AddressSanitizer." OFF)
 option(MEMORY_SANITIZER "Build with MemorySanitizer." OFF)
 option(THREAD_SANITIZER "Build with ThreadSanitizer." OFF)
 option(UNDEFINED_BEHAVIOR_SANITIZER "Build with UndefinedBehaviorSanitizer." OFF)
-option(LINK_PROFILER "Link gperftools profiler" OFF) 
 
 if(NOT WIN32)
 CHECK_INCLUDE_FILES(ifaddrs.h       KVSWEBRTC_HAVE_IFADDRS_H)
@@ -70,9 +68,6 @@ if(USE_OPENSSL)
   add_definitions(-DKVS_USE_OPENSSL)
 elseif(USE_MBEDTLS)
   add_definitions(-DKVS_USE_MBEDTLS)
-  # FIXME: there's probably a better way to inject MBEDTLS_USER_CONFIG_FILE flag without mutating the global CMAKE_C_FLAGS and CMAKE_CXX_FLAGS
-  set(CMAKE_C_FLAGS "-I${CMAKE_CURRENT_SOURCE_DIR}/configs -DMBEDTLS_USER_CONFIG_FILE='<config_mbedtls.h>' ${CMAKE_C_FLAGS}")
-  set(CMAKE_CXX_FLAGS "-I${CMAKE_CURRENT_SOURCE_DIR}/configs -DMBEDTLS_USER_CONFIG_FILE='<config_mbedtls.h>' ${CMAKE_CXX_FLAGS}")
 endif()
 
 if(BUILD_DEPENDENCIES)
@@ -100,8 +95,7 @@ if(BUILD_DEPENDENCIES)
     build_dependency(openssl ${BUILD_ARGS})
     set(OPENSSL_ROOT_DIR ${OPEN_SRC_INSTALL_PREFIX})
   elseif(USE_MBEDTLS)
-    set(BUILD_ARGS -DBUILD_STATIC_LIBS=${BUILD_STATIC_LIBS}
-                   -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS})
+    set(BUILD_ARGS -DBUILD_STATIC_LIBS=${BUILD_STATIC_LIBS})
     build_dependency(mbedtls ${BUILD_ARGS})
   endif()
 
@@ -109,8 +103,7 @@ if(BUILD_DEPENDENCIES)
   set(BUILD_ARGS -DBUILD_STATIC_LIBS=${BUILD_STATIC_LIBS}
                  -DOPENSSL_DIR=${OPEN_SRC_INSTALL_PREFIX}
                  -DUSE_OPENSSL=${USE_OPENSSL}
-                 -DUSE_MBEDTLS=${USE_MBEDTLS}
-                 -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS})
+                 -DUSE_MBEDTLS=${USE_MBEDTLS})
   build_dependency(websockets ${BUILD_ARGS})
 
   set(BUILD_ARGS
@@ -125,23 +118,14 @@ if(BUILD_DEPENDENCIES)
 
   build_dependency(usrsctp)
   if(BUILD_TEST)
-    build_dependency(gtest)
-  endif()
-
-  if(BUILD_BENCHMARK)
-    build_dependency(benchmark)
-  endif()
-
-  if (LINK_PROFILER)
-    build_dependency(gperftools)
+   build_dependency(gtest)
   endif()
 
   # building kvsCommonLws also builds kvspic
   set(BUILD_ARGS
       -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       -DUSE_OPENSSL=${USE_OPENSSL}
-      -DUSE_MBEDTLS=${USE_MBEDTLS}
-      -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS})
+      -DUSE_MBEDTLS=${USE_MBEDTLS})
   build_dependency(kvsCommonLws ${BUILD_ARGS})
 
   message(STATUS "Finished building dependencies.")
@@ -161,17 +145,8 @@ endif()
 
 if (OPEN_SRC_INSTALL_PREFIX)
   find_library(SRTP_LIBRARIES srtp2 REQUIRED PATHS ${OPEN_SRC_INSTALL_PREFIX})
-
-  if (LINK_PROFILER)
-    find_library(GPERFTOOLS_MALLOC_LIBRARIES tcmalloc REQUIRED PATHS ${OPEN_SRC_INSTALL_PREFIX})
-    find_library(GPERFTOOLS_PROFILER_LIBRARIES profiler REQUIRED PATHS ${OPEN_SRC_INSTALL_PREFIX})
-  endif()
 else()
   find_library(SRTP_LIBRARIES srtp2 REQUIRED )
-  if (LINK_PROFILER)
-    find_library(GPERFTOOLS_MALLOC_LIBRARIES tcmalloc REQUIRED)
-    find_library(GPERFTOOLS_PROFILER_LIBRARIES profiler REQUIRED)
-  endif()
 endif()
 
 if (WIN32)
@@ -280,10 +255,33 @@ file(
   "src/source/Sctp/*.c"
   "src/source/Metrics/*.c")
 
+file(
+  GLOB
+  WEBRTC_CLIENT_MASTER_SOURCE_FILE
+  "src/source/Crypto/*.c"
+  "src/source/client_master/*.c"
+  "src/source/Signaling/*.c"  
+  "src/source/Ice/*.c"
+  "src/source/PeerConnection/*.c"
+  "src/source/Rtcp/*.c"
+  "src/source/Rtp/*.c"
+  "src/source/Rtp/Codecs/*.c"
+  "src/source/Sdp/*.c"
+  "src/source/Srtp/*.c"
+  "src/source/Stun/*.c"
+  "src/source/Sctp/*.c"
+  "src/source/Metrics/*.c")
+
 if (USE_OPENSSL)
   list(FILTER WEBRTC_CLIENT_SOURCE_FILES EXCLUDE REGEX ".*_mbedtls\\.c")
 elseif (USE_MBEDTLS)
   list(FILTER WEBRTC_CLIENT_SOURCE_FILES EXCLUDE REGEX ".*_openssl\\.c")
+endif()
+
+if (USE_OPENSSL)
+  list(FILTER WEBRTC_CLIENT_MASTER_SOURCE_FILE EXCLUDE REGEX ".*_mbedtls\\.c")
+elseif (USE_MBEDTLS)
+  list(FILTER WEBRTC_CLIENT_MASTER_SOURCE_FILE EXCLUDE REGEX ".*_openssl\\.c")
 endif()
 
 file(GLOB WEBRTC_SIGNALING_CLIENT_SOURCE_FILES "src/source/Signaling/*.c")
@@ -306,8 +304,6 @@ target_link_libraries(
           ${SRTP_LIBRARIES}
           ${Usrsctp}
           ${MBEDTLS_LIBRARIES}
-          ${GPERFTOOLS_MALLOC_LIBRARIES}
-          ${GPERFTOOLS_PROFILER_LIBRARIES}
           ${EXTRA_DEPS})
 
 add_library(kvsWebrtcSignalingClient ${LINKAGE} ${WEBRTC_SIGNALING_CLIENT_SOURCE_FILES})
@@ -315,16 +311,36 @@ add_library(kvsWebrtcSignalingClient ${LINKAGE} ${WEBRTC_SIGNALING_CLIENT_SOURCE
 target_link_libraries(
   kvsWebrtcSignalingClient
   PUBLIC
-        kvsCommonLws
         ${LIBWEBSOCKETS_LIBRARIES} 
+        kvsCommonLws
   PRIVATE kvspicUtils
          kvspicState
          ${CMAKE_THREAD_LIBS_INIT}
          ${EXTRA_DEPS}
          ${OPENSSL_SSL_LIBRARY}
          ${OPENSSL_CRYPTO_LIBRARY}
-         ${GPERFTOOLS_MALLOC_LIBRARIES}
-         ${GPERFTOOLS_PROFILER_LIBRARIES}
+         ${MBEDTLS_LIBRARIES})
+
+add_library(kvsWebrtcClientMaster ${LINKAGE} ${WEBRTC_CLIENT_MASTER_SOURCE_FILE})
+target_link_libraries(kvsWebrtcClientMaster 
+  PUBLIC
+        ${LIBWEBSOCKETS_LIBRARIES} 
+        kvsCommonLws
+        kvspicUtils
+        kvspicState
+  PRIVATE kvspicUtils
+         kvspicState
+         ${CMAKE_THREAD_LIBS_INIT}
+         ${OPENSSL_SSL_LIBRARY}
+         ${OPENSSL_CRYPTO_LIBRARY}
+         ${SRTP_LIBRARIES}
+         ${Usrsctp}
+         ${MBEDTLS_LIBRARIES}
+         ${EXTRA_DEPS}
+         ${CMAKE_THREAD_LIBS_INIT}
+         ${EXTRA_DEPS}
+         ${OPENSSL_SSL_LIBRARY}
+         ${OPENSSL_CRYPTO_LIBRARY}
          ${MBEDTLS_LIBRARIES})
 
 if (WIN32)
@@ -334,60 +350,16 @@ endif()
 if(COMPILER_WARNINGS)
   target_compile_options(kvsWebrtcClient PUBLIC -Wall -Werror -pedantic -Wextra -Wno-unknown-warning-option)
   target_compile_options(kvsWebrtcSignalingClient PUBLIC -Wall -Werror -pedantic -Wextra -Wno-unknown-warning-option)
+  target_compile_options(kvsWebrtcClientMaster PUBLIC -Wall -Werror -pedantic -Wextra -Wno-unknown-warning-option)
 endif()
 
-install(TARGETS kvsWebrtcClient kvsWebrtcSignalingClient
+install(TARGETS kvsWebrtcClient kvsWebrtcSignalingClient kvsWebrtcClientMaster
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
 )
+
 
 install(DIRECTORY ${KINESIS_VIDEO_WEBRTC_CLIENT_SRC}/src/include/
   DESTINATION include
 )
 
-if (BUILD_SAMPLE)
-  file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/samples/opusSampleFrames" DESTINATION .)
-  file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/samples/h264SampleFrames" DESTINATION .)
-
-  add_executable(
-    kvsWebrtcClientMaster
-    ${KINESIS_VIDEO_WEBRTC_CLIENT_SRC}/samples/Common.c
-    ${KINESIS_VIDEO_WEBRTC_CLIENT_SRC}/samples/kvsWebRTCClientMaster.c)
-  target_link_libraries(kvsWebrtcClientMaster kvsWebrtcClient kvsWebrtcSignalingClient kvspicUtils)
-
-  add_executable(
-    kvsWebrtcClientViewer
-    ${KINESIS_VIDEO_WEBRTC_CLIENT_SRC}/samples/Common.c
-    ${KINESIS_VIDEO_WEBRTC_CLIENT_SRC}/samples/kvsWebRTCClientViewer.c)
-  target_link_libraries(kvsWebrtcClientViewer kvsWebrtcClient kvsWebrtcSignalingClient kvspicUtils)
-
-  add_executable(
-          discoverNatBehavior
-          ${KINESIS_VIDEO_WEBRTC_CLIENT_SRC}/samples/discoverNatBehavior.c)
-  target_link_libraries(discoverNatBehavior kvsWebrtcClient)
-
-  if(GST_FOUND)
-    add_executable(
-      kvsWebrtcClientMasterGstSample
-      ${KINESIS_VIDEO_WEBRTC_CLIENT_SRC}/samples/Common.c
-      ${KINESIS_VIDEO_WEBRTC_CLIENT_SRC}/samples/kvsWebRTCClientMasterGstreamerSample.c
-    )
-    target_link_libraries(kvsWebrtcClientMasterGstSample kvsWebrtcClient kvsWebrtcSignalingClient ${GST_SAMPLE_LIBRARIES} kvspicUtils)
-
-    install(TARGETS kvsWebrtcClientMasterGstSample
-      RUNTIME DESTINATION bin
-    )
-  endif()
-
-  install(TARGETS kvsWebrtcClientMaster kvsWebrtcClientViewer discoverNatBehavior
-    RUNTIME DESTINATION bin
-  )
-endif()
-
-if(BUILD_TEST)
-  add_subdirectory(tst)
-endif()
-
-if(BUILD_BENCHMARK)
-  add_subdirectory(bench)
-endif()

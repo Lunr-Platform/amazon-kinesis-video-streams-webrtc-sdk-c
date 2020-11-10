@@ -132,13 +132,8 @@ STATUS socketConnectionInitSecureConnection(PSocketConnection pSocketConnection,
     ENTERS();
     TlsSessionCallbacks callbacks;
     STATUS retStatus = STATUS_SUCCESS;
-    BOOL locked = FALSE;
 
     CHK(pSocketConnection != NULL, STATUS_NULL_ARG);
-
-    MUTEX_LOCK(pSocketConnection->lock);
-    locked = TRUE;
-
     CHK(pSocketConnection->pTlsSession == NULL, STATUS_INVALID_ARG);
 
     callbacks.outBoundPacketFnCustomData = callbacks.stateChangeFnCustomData = (UINT64) pSocketConnection;
@@ -152,10 +147,6 @@ STATUS socketConnectionInitSecureConnection(PSocketConnection pSocketConnection,
 CleanUp:
     if (STATUS_FAILED(retStatus) && pSocketConnection->pTlsSession != NULL) {
         freeTlsSession(&pSocketConnection->pTlsSession);
-    }
-
-    if (locked) {
-        MUTEX_UNLOCK(pSocketConnection->lock);
     }
 
     LEAVES();
@@ -290,10 +281,7 @@ BOOL socketConnectionIsConnected(PSocketConnection pSocketConnection)
         peerSockAddr = (struct sockaddr*) &ipv6PeerAddr;
     }
 
-    MUTEX_LOCK(pSocketConnection->lock);
     retVal = connect(pSocketConnection->localSocket, peerSockAddr, addrLen);
-    MUTEX_UNLOCK(pSocketConnection->lock);
-
     if (retVal == 0 || getErrorCode() == EISCONN) {
         return TRUE;
     }

@@ -333,10 +333,8 @@ PVOID connectionListenerReceiveDataRoutine(PVOID arg)
             } else if (FD_ISSET(pSocketConnection->localSocket, &rfds)) {
                 iterate = TRUE;
                 while (iterate) {
-                    MUTEX_LOCK(pSocketConnection->lock);
                     readLen = recvfrom(pSocketConnection->localSocket, pConnectionListener->pBuffer, pConnectionListener->bufferLen, 0,
                                        (struct sockaddr*) &srcAddrBuff, &srcAddrBuffLen);
-                    MUTEX_UNLOCK(pSocketConnection->lock);
                     if (readLen < 0) {
                         switch (getErrorCode()) {
                             case EWOULDBLOCK:
