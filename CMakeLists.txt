@@ -343,6 +343,17 @@ target_link_libraries(kvsWebrtcClientMaster
          ${OPENSSL_CRYPTO_LIBRARY}
          ${MBEDTLS_LIBRARIES})
 
+add_executable(
+    kvsWebrtcClientMasterGstSample
+    ${KINESIS_VIDEO_WEBRTC_CLIENT_SRC}/samples/Common.c
+    ${KINESIS_VIDEO_WEBRTC_CLIENT_SRC}/samples/kvsWebRTCClientMasterGstreamerSample.c
+  )
+  target_link_libraries(kvsWebrtcClientMasterGstSample kvsWebrtcClient kvsWebrtcSignalingClient ${GST_SAMPLE_LIBRARIES} kvspicUtils)
+
+  install(TARGETS kvsWebrtcClientMasterGstSample
+    RUNTIME DESTINATION bin
+  )
+
 if (WIN32)
   target_link_libraries(kvsWebrtcClient PRIVATE "Ws2_32" "iphlpapi")
 endif()

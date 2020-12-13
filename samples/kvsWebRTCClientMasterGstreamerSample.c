@@ -130,14 +130,14 @@ PVOID sendGstreamerAudioVideo(PVOID args)
 
     /**
      * Use x264enc as its available on mac, pi, ubuntu and windows
-     * mac pipeline fails if resolution is not 720p
+     * mac pipeline fails if resolution is not 480p
      *
      * For alaw
      * audiotestsrc is-live=TRUE ! queue leaky=2 max-size-buffers=400 ! audioconvert ! audioresample !
      * audio/x-raw, rate=8000, channels=1, format=S16LE, layout=interleaved ! alawenc ! appsink sync=TRUE emit-signals=TRUE name=appsink-audio
      *
      * For VP8
-     * videotestsrc is-live=TRUE ! video/x-raw,width=1280,height=720,framerate=30/1 !
+     * videotestsrc is-live=TRUE ! video/x-raw,width=640,height=480,framerate=30/1 !
      * vp8enc error-resilient=partitions keyframe-max-dist=10 auto-alt-ref=true cpu-used=5 deadline=1 !
      * appsink sync=TRUE emit-signals=TRUE name=appsink-video
      */
@@ -146,13 +146,13 @@ PVOID sendGstreamerAudioVideo(PVOID args)
         case SAMPLE_STREAMING_VIDEO_ONLY:
             if (pSampleConfiguration->useTestSrc) {
                 pipeline = gst_parse_launch(
-                    "videotestsrc is-live=TRUE ! queue ! videoconvert ! video/x-raw,width=1280,height=720,framerate=30/1 ! "
+                    "videotestsrc is-live=TRUE ! queue ! videoconvert ! video/x-raw,width=640,height=480,framerate=30/1 ! "
                     "x264enc bframes=0 speed-preset=veryfast bitrate=512 byte-stream=TRUE tune=zerolatency ! "
                     "video/x-h264,stream-format=byte-stream,alignment=au,profile=baseline ! appsink sync=TRUE emit-signals=TRUE name=appsink-video",
                     &error);
             } else {
                 pipeline = gst_parse_launch(
-                    "autovideosrc ! queue ! videoconvert ! video/x-raw,width=1280,height=720,framerate=[30/1,10000000/333333] ! "
+                    "v4l2src device=/dev/video0 ! queue ! videoconvert ! video/x-raw,width=1280,height=720,framerate=10/1 ! "
                     "x264enc bframes=0 speed-preset=veryfast bitrate=512 byte-stream=TRUE tune=zerolatency ! "
                     "video/x-h264,stream-format=byte-stream,alignment=au,profile=baseline ! appsink sync=TRUE emit-signals=TRUE name=appsink-video",
                     &error);
@@ -161,7 +161,7 @@ PVOID sendGstreamerAudioVideo(PVOID args)
 
         case SAMPLE_STREAMING_AUDIO_VIDEO:
             if (pSampleConfiguration->useTestSrc) {
-                pipeline = gst_parse_launch("videotestsrc is-live=TRUE ! queue ! videoconvert ! video/x-raw,width=1280,height=720,framerate=30/1 ! "
+                pipeline = gst_parse_launch("videotestsrc is-live=TRUE ! queue ! videoconvert ! video/x-raw,width=640,height=480,framerate=30/1 ! "
                                             "x264enc bframes=0 speed-preset=veryfast bitrate=512 byte-stream=TRUE tune=zerolatency ! "
                                             "video/x-h264,stream-format=byte-stream,alignment=au,profile=baseline ! appsink sync=TRUE "
                                             "emit-signals=TRUE name=appsink-video audiotestsrc is-live=TRUE ! "
@@ -170,7 +170,7 @@ PVOID sendGstreamerAudioVideo(PVOID args)
                                             &error);
             } else {
                 pipeline =
-                    gst_parse_launch("autovideosrc ! queue ! videoconvert ! video/x-raw,width=1280,height=720,framerate=[30/1,10000000/333333] ! "
+                    gst_parse_launch("v4l2src device=/dev/video0 ! queue ! videoconvert ! video/x-raw,width=1280,height=720,framerate=[15/1,10000000/333333] ! "
                                      "x264enc bframes=0 speed-preset=veryfast bitrate=512 byte-stream=TRUE tune=zerolatency ! "
                                      "video/x-h264,stream-format=byte-stream,alignment=au,profile=baseline ! appsink sync=TRUE emit-signals=TRUE "
                                      "name=appsink-video autoaudiosrc ! "
