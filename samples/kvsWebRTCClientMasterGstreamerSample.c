@@ -3,7 +3,7 @@
 #include <gst/app/gstappsink.h>
 
 extern PSampleConfiguration gSampleConfiguration;
-
+char channel_name[25], dev_path[25], width[4], height[4], frame_rate[3], bitrate[4];
 // #define VERBOSE
 
 GstFlowReturn on_new_sample(GstElement* sink, gpointer data, UINT64 trackid)
@@ -141,8 +141,12 @@ PVOID sendGstreamerAudioVideo(PVOID args)
      * vp8enc error-resilient=partitions keyframe-max-dist=10 auto-alt-ref=true cpu-used=5 deadline=1 !
      * appsink sync=TRUE emit-signals=TRUE name=appsink-video
      */
-
-    switch (pSampleConfiguration->mediaType) {
+    char gst_1[1000];
+    sprintf(gst_1,"v4l2src device=%s ! queue ! videoconvert ! video/x-raw,width=%s,height=%s,framerate=%s/1 ! x264enc bframes=0 speed-preset=veryfast bitrate=%s byte-stream=TRUE tune=zerolatency ! video/x-h264,stream-format=byte-stream,alignment=au,profile=baseline ! appsink sync=TRUE emit-signals=TRUE name=appsink-video", 
+        dev_path, width, height, frame_rate, bitrate);
+    // printf("\n\n############################\n");
+    // puts(gst_1);
+    switch (pSampleConfiguration->mediaType) {        
         case SAMPLE_STREAMING_VIDEO_ONLY:
             if (pSampleConfiguration->useTestSrc) {
                 pipeline = gst_parse_launch(
@@ -152,9 +156,7 @@ PVOID sendGstreamerAudioVideo(PVOID args)
                     &error);
             } else {
                 pipeline = gst_parse_launch(
-                    "v4l2src device=/dev/video0 ! queue ! videoconvert ! video/x-raw,width=1280,height=720,framerate=10/1 ! "
-                    "x264enc bframes=0 speed-preset=veryfast bitrate=512 byte-stream=TRUE tune=zerolatency ! "
-                    "video/x-h264,stream-format=byte-stream,alignment=au,profile=baseline ! appsink sync=TRUE emit-signals=TRUE name=appsink-video",
+                    gst_1,
                     &error);
             }
             break;
@@ -170,7 +172,7 @@ PVOID sendGstreamerAudioVideo(PVOID args)
                                             &error);
             } else {
                 pipeline =
-                    gst_parse_launch("v4l2src device=/dev/video0 ! queue ! videoconvert ! video/x-raw,width=1280,height=720,framerate=[15/1,10000000/333333] ! "
+                    gst_parse_launch("v4l2src device=/dev/video0 ! queue ! videoconvert ! video/x-raw,width=1280,height=720,framerate=10/1 ! "
                                      "x264enc bframes=0 speed-preset=veryfast bitrate=512 byte-stream=TRUE tune=zerolatency ! "
                                      "video/x-h264,stream-format=byte-stream,alignment=au,profile=baseline ! appsink sync=TRUE emit-signals=TRUE "
                                      "name=appsink-video autoaudiosrc ! "
@@ -336,8 +338,14 @@ CleanUp:
 INT32 main(INT32 argc, CHAR* argv[])
 {
     STATUS retStatus = STATUS_SUCCESS;
-    PSampleConfiguration pSampleConfiguration = NULL;
-
+    PSampleConfiguration pSampleConfiguration = NULL;    
+    sprintf(channel_name,argv[1]);
+    sprintf(dev_path,argv[3]);
+    sprintf(width,argv[4]);
+    sprintf(height,argv[5]);
+    sprintf(frame_rate,argv[6]);    
+    sprintf(bitrate,argv[7]);    
+    // puts(dev_path);
     signal(SIGINT, sigintHandler);
 
     // do trickle-ice by default
@@ -383,14 +391,7 @@ INT32 main(INT32 argc, CHAR* argv[])
         }
     } else {
         printf("[KVS Gstreamer Master] Streaming video only\n");
-    }
-
-    if (argc > 3) {
-        if (STRCMP(argv[3], "testsrc") == 0) {
-            printf("[KVS GStreamer Master] Using test source in GStreamer\n");
-            pSampleConfiguration->useTestSrc = TRUE;
-        }
-    }
+    }   
 
     switch (pSampleConfiguration->mediaType) {
         case SAMPLE_STREAMING_VIDEO_ONLY:
@@ -411,8 +412,13 @@ INT32 main(INT32 argc, CHAR* argv[])
 
     pSampleConfiguration->signalingClientCallbacks.messageReceivedFn = signalingMessageReceived;
 
-    strcpy(pSampleConfiguration->clientInfo.clientId, SAMPLE_MASTER_CLIENT_ID);
-
+    strcpy(pSampleConfiguration->clientInfo.clientId, channel_name);
+    pSampleConfiguration->channelInfo.retry = TRUE;
+    pSampleConfiguration->channelInfo.reconnect = TRUE;
+    pSampleConfiguration->channelInfo.messageTtl = 0; // Default is 60 seconds
+    pSampleConfiguration->channelInfo.channelType = SIGNALING_CHANNEL_TYPE_SINGLE_MASTER;    
+    pSampleConfiguration->channelInfo.cachingPolicy = SIGNALING_API_CALL_CACHE_TYPE_FILE;
+    pSampleConfiguration->channelInfo.cachingPeriod = SIGNALING_API_CALL_CACHE_TTL_SENTINEL_VALUE;
     retStatus = createSignalingClientSync(&pSampleConfiguration->clientInfo, &pSampleConfiguration->channelInfo,
                                           &pSampleConfiguration->signalingClientCallbacks, pSampleConfiguration->pCredentialProvider,
                                           &pSampleConfiguration->signalingClientHandle);
