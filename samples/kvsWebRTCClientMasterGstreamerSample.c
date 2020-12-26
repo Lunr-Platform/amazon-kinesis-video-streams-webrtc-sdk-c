@@ -142,7 +142,7 @@ PVOID sendGstreamerAudioVideo(PVOID args)
      * appsink sync=TRUE emit-signals=TRUE name=appsink-video
      */
     char gst_1[1000];
-    sprintf(gst_1,"v4l2src device=%s ! queue ! videoconvert ! video/x-raw,width=%s,height=%s,framerate=%s/1 ! x264enc bframes=0 speed-preset=veryfast bitrate=%s byte-stream=TRUE tune=zerolatency ! video/x-h264,stream-format=byte-stream,alignment=au,profile=baseline ! appsink sync=TRUE emit-signals=TRUE name=appsink-video", 
+    sprintf(gst_1,"v4l2src device=%s ! queue ! videoconvert ! video/x-raw,width=%s,height=%s,framerate=%s/1 ! queue ! x264enc bframes=0 speed-preset=ultrafast bitrate=%s byte-stream=TRUE tune=zerolatency ! queue ! video/x-h264,stream-format=byte-stream,alignment=au,profile=baseline ! queue ! appsink sync=TRUE emit-signals=TRUE name=appsink-video", 
         dev_path, width, height, frame_rate, bitrate);
     // printf("\n\n############################\n");
     // puts(gst_1);
