@@ -142,7 +142,16 @@ PVOID sendGstreamerAudioVideo(PVOID args)
      * appsink sync=TRUE emit-signals=TRUE name=appsink-video
      */
     char gst_1[1000];
-    sprintf(gst_1,"v4l2src device=%s ! queue ! videoconvert ! video/x-raw,width=%s,height=%s,framerate=%s/1 ! queue ! x264enc bframes=0 speed-preset=ultrafast bitrate=%s byte-stream=TRUE tune=zerolatency ! queue ! video/x-h264,stream-format=byte-stream,alignment=au,profile=baseline ! queue ! appsink sync=TRUE emit-signals=TRUE name=appsink-video", 
+    // sprintf(gst_1,"v4l2src device=%s ! queue ! videoconvert ! video/x-raw,width=%s,height=%s,framerate=%s/1 ! queue ! x264enc bframes=0 speed-preset=ultrafast bitrate=%s byte-stream=TRUE tune=zerolatency ! queue ! "
+    //     "video/x-h264,stream-format=byte-stream,alignment=au,profile=baseline ! queue ! " //,
+    //     "appsink sync=TRUE emit-signals=TRUE name=appsink-video autoaudiosrc is-live=TRUE ! " 
+    //     "queue  leaky=2 max-size-buffers=400 ! audioconvert ! audioresample !"
+    //     "audio/x-raw, rate=8000, channels=1, format=S16LE, layout=interleaved ! alawenc ! appsink sync=TRUE emit-signals=TRUE name=appsink-audio",
+    //     dev_path, width, height, frame_rate, bitrate);
+    sprintf(gst_1,"v4l2src device=%s ! queue ! videoconvert ! video/x-raw,width=%s,height=%s,framerate=%s/1 ! "
+    "x264enc bframes=0 speed-preset=ultrafast bitrate=%s byte-stream=TRUE tune=zerolatency ! "
+    "video/x-h264,stream-format=byte-stream,alignment=au,profile=baseline ! "
+    "appsink sync=TRUE emit-signals=TRUE name=appsink-video", 
         dev_path, width, height, frame_rate, bitrate);
     // printf("\n\n############################\n");
     // puts(gst_1);
@@ -172,13 +181,7 @@ PVOID sendGstreamerAudioVideo(PVOID args)
                                             &error);
             } else {
                 pipeline =
-                    gst_parse_launch("v4l2src device=/dev/video0 ! queue ! videoconvert ! video/x-raw,width=1280,height=720,framerate=10/1 ! "
-                                     "x264enc bframes=0 speed-preset=veryfast bitrate=512 byte-stream=TRUE tune=zerolatency ! "
-                                     "video/x-h264,stream-format=byte-stream,alignment=au,profile=baseline ! appsink sync=TRUE emit-signals=TRUE "
-                                     "name=appsink-video autoaudiosrc ! "
-                                     "queue leaky=2 max-size-buffers=400 ! audioconvert ! audioresample ! opusenc ! "
-                                     "audio/x-opus,rate=48000,channels=2 ! appsink sync=TRUE emit-signals=TRUE name=appsink-audio",
-                                     &error);
+                    gst_parse_launch(gst_1, &error);
             }
             break;
     }
@@ -415,10 +418,10 @@ INT32 main(INT32 argc, CHAR* argv[])
     strcpy(pSampleConfiguration->clientInfo.clientId, channel_name);
     pSampleConfiguration->channelInfo.retry = TRUE;
     pSampleConfiguration->channelInfo.reconnect = TRUE;
-    pSampleConfiguration->channelInfo.messageTtl = 0; // Default is 60 seconds
-    pSampleConfiguration->channelInfo.channelType = SIGNALING_CHANNEL_TYPE_SINGLE_MASTER;    
-    pSampleConfiguration->channelInfo.cachingPolicy = SIGNALING_API_CALL_CACHE_TYPE_FILE;
-    pSampleConfiguration->channelInfo.cachingPeriod = SIGNALING_API_CALL_CACHE_TTL_SENTINEL_VALUE;
+    // pSampleConfiguration->channelInfo.messageTtl = 0; // Default is 60 seconds
+    // pSampleConfiguration->channelInfo.channelType = SIGNALING_CHANNEL_TYPE_SINGLE_MASTER;    
+    // pSampleConfiguration->channelInfo.cachingPolicy = SIGNALING_API_CALL_CACHE_TYPE_FILE;
+    // pSampleConfiguration->channelInfo.cachingPeriod = SIGNALING_API_CALL_CACHE_TTL_SENTINEL_VALUE;
     retStatus = createSignalingClientSync(&pSampleConfiguration->clientInfo, &pSampleConfiguration->channelInfo,
                                           &pSampleConfiguration->signalingClientCallbacks, pSampleConfiguration->pCredentialProvider,
                                           &pSampleConfiguration->signalingClientHandle);
